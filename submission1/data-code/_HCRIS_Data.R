@@ -10,8 +10,8 @@ pacman::p_load(tidyverse, ggplot2, dplyr, lubridate)
 
 
 # Read and combine data ---------------------------------------------------
-source('data-code/H1_HCRISv1996.R')
-source('data-code/H2_HCRISv2010.R')
+source('submission1/data-code/H1_HCRISv1996.R')
+source('submission1/data-code/H2_HCRISv2010.R')
 
 final.hcris.v1996=read_rds('data/output/HCRIS_Data_v1996.rds')
 final.hcris.v2010=read_rds('data/output/HCRIS_Data_v2010.rds')
@@ -61,6 +61,16 @@ duplicate.hcris =
   final.hcris %>%
   filter(total_reports>1) %>%
   mutate(time_diff=fy_end-fy_start)
+
+#QUESTION 1 CODE
+nrow(duplicate.hcris)
+  q1 <- duplicate.hcris%>%
+  group_by(fyear)%>%
+  count()
+  ggplot(q1, aes(x = fyear, y = n))+
+  geom_line()+
+  geom_point()
+ summary(duplicate.hcris)
 
 ## calculate elapsed time between fy start and fy end for hospitals with multiple reports
 duplicate.hcris = 
@@ -141,5 +151,8 @@ final.hcris.data =
   final.hcris.data %>%
   rename(year=fyear) %>%
   arrange(provider_number, year)
+
+#Question 2
+length(unique(final.hcris.data$provider_number))
 
 write_rds(final.hcris.data,'data/output/HCRIS_Data.rds')
