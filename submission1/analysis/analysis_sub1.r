@@ -174,7 +174,7 @@ summary(reg)
 
 #10. Briefly describe your experience working with these data (just a 
 #few sentences). Tell me one thing you learned and one thing that 
-#really aggravated or surprised you.
+#really aggravated or surprised you. hi
 
 
 #rm(list=c()) # nolint
