@@ -94,7 +94,7 @@ summarise(third_mean = mean(price, na.rm = TRUE))
 foq_mean <- hcris_2012%>%
 filter(fourth_quartile == 1)%>%
 group_by(penalty)%>%
-summarise(foruth_mean = mean(price, na.rm = TRUE))
+summarise(fourth_mean = mean(price, na.rm = TRUE))
 
 fq_mean%>%
 left_join(sq_mean, by = "penalty")%>%
@@ -108,7 +108,7 @@ left_join(foq_mean, by = "penalty")
 
 #a. Nearest neighbor matching (1-to-1) with inverse variance distance 
 #based on quartiles of bed size
-install.packages("Matching")
+install.packages("MatchIt")
 library("dplyr")
 library("tidyverse")
 hcris.vars <- hcris_2012 %>% 

@@ -47,6 +47,8 @@ final.hcris =
   group_by(provider_number, fyear) %>%
   mutate(report_number=row_number())
 
+  length(unique(final.hcris$provider_number))
+
 ## identify hospitals with only one report per fiscal year 
 ## this will be the first set of hospitals in the final dataset
 unique.hcris1 =
@@ -156,3 +158,6 @@ final.hcris.data =
 length(unique(final.hcris.data$provider_number))
 
 write_rds(final.hcris.data,'data/output/HCRIS_Data.rds')
+
+rm(list=c("final.hcris.data", "unique.hcris4", "unique.hcris3", "unique.hcris2", "unique.hcris1","duplicate.hcris3", "duplicate.hcris2","final.hcris.v1996","final.hcris"))
+save.image("submission1/analysis/_HCRIS_Data_workspace.Rdata")
