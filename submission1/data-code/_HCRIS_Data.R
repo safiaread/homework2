@@ -66,10 +66,10 @@ duplicate.hcris =
 
 #QUESTION 1 CODE
 nrow(duplicate.hcris)
-  q1 <- duplicate.hcris%>%
+  figure_q1 <- duplicate.hcris%>%
   group_by(fyear)%>%
-  count()
-  ggplot(q1, aes(x = fyear, y = n))+
+  count()%>%
+  ggplot(q1, aes(x = fyear, y = n)) +
   geom_line()+
   geom_point()
  summary(duplicate.hcris)
@@ -159,5 +159,5 @@ length(unique(final.hcris.data$provider_number))
 
 write_rds(final.hcris.data,'data/output/HCRIS_Data.rds')
 
-rm(list=c("final.hcris.data", "unique.hcris4", "unique.hcris3", "unique.hcris2", "unique.hcris1","duplicate.hcris3", "duplicate.hcris2","final.hcris.v1996","final.hcris"))
-save.image("submission1/analysis/_HCRIS_Data_workspace.Rdata")
+rm(list=c("final.hcris.data", "unique.hcris4", "unique.hcris3", "unique.hcris2", "unique.hcris1","duplicate.hcris3", "duplicate.hcris2","final.hcris.v1996","final.hcris", "duplicate.hcris"))
+save.image("submission2/analysis/_HCRIS_Data_workspace.Rdata")
