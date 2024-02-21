@@ -1,8 +1,8 @@
 ---
-title: "Homework Two Submission 1"
+title: "Homework Two Submission 2"
 author: "Safia Read"
 ---
-This is my first submission of the second homework for Econ 470. 
+This is my second submission of the second homework for Econ 470. 
 
 [Link to Github](https://github.com/safiaread/homework-2)
 
