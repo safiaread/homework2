@@ -1,8 +1,15 @@
 ---
 title: "Homework Two Submission 2"
 author: "Safia Read"
+format:
+  pdf:
+    output-file: "read-s-hwk1-3"
+    output-ext:  "pdf"
+    header-includes:
+      - \usepackage{float}
+      - \floatplacement{table}{H}
 ---
-This is my second submission of the second homework for Econ 470. 
+This is my third submission of the second homework for Econ 470. 
 
 [Link to Github](https://github.com/safiaread/homework-2)
 
@@ -10,7 +17,10 @@ https://github.com/safiaread/homework-2
 
 ```{r, echo = F, message=FALSE}
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(tidyverse, ggplot2, dplyr, lubridate)
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stargazer, readr, readxl, hrbrthemes, fixest,
+               scales, gganimate, gapminder, gifski, png, tufte, plotly, OECD,
+               ggrepel, survey, foreign, devtools, pdftools, kableExtra, modelsummary,
+               kableExtra)
 load("/Users/safiaread/Desktop/homework_2/submission2/analysis/_HCRIS_Data_workspace.Rdata")
 ```
 
@@ -30,15 +40,13 @@ ylab("Number of Hospitals")
 2. After removing/combining multiple reports, how many unique hospital
 IDs (Medicare provider numbers) exist in the data?
 ```{r, echo = F}
-hcris <- read_rds("data/output/HCRIS_Data.rds")
+hcris <- read_rds("/Users/safiaread/Desktop/homework_2/data/output/HCRIS_Data.rds")
 hcris <- hcris%>%
 filter(year >= 2008 & year <= 2015)
 
 q2 <- length(unique(hcris$provider_number))
-
-#There are `r q2` unique hospital IDs in the data.
 ```
-
+There are `r q2` unique hospital IDs in the data.
 
 3. What is the distribution of total charges (tot_charges in the data) 
 in each year? Show your results with a “violin” plot, with charges on 
@@ -68,8 +76,6 @@ hcris_price <- hcris_price %>% filter(price_denom>100, !is.na(price_denom),
          price_num>0, !is.na(price_num),
          price<100000)
 
-summary(hcris_price$beds)
-
 hcris_price <- hcris_price%>%
 filter(beds < 400)
 
@@ -95,10 +101,21 @@ mutate(hvbp_payment = ifelse(is.na(hvbp_payment),0,hvbp_payment),
 na.omit()
 
 
-hcris_2012%>%
+price_table <- hcris_2012%>%
 group_by(penalty)%>%
 summarise(avg_price = mean(price, na.rm = TRUE))
 # values for which penalty was NA were dropped
+```
+```{r}
+#| echo: false
+#| label: price-table
+#| tbl-cap: "Average Price among Penalized versus Non-Penalized Hospitals"
+
+options(knitr.kable.NA = 0)
+knitr::kable(price_table, 
+             col.names=c("Penalty","Average Price"),
+             format.args=list(big.mark=","), booktabs = TRUE) %>%
+             kable_styling(latex_options=c("scale_down"))
 ```
 
 6. Split hospitals into quartiles based on bed size. To do this, 
@@ -112,8 +129,6 @@ mutate(first_quartile = ifelse(beds <= quantile(hcris_2012$beds, 0.25, na.rm = T
 mutate(second_quartile = ifelse(beds <= quantile(hcris_2012$beds, 0.5, na.rm = TRUE) & beds > quantile(hcris_2012$beds, 0.25, na.rm = TRUE), 1, 0)) %>%
 mutate(third_quartile = ifelse(beds <= quantile(hcris_2012$beds, 0.75, na.rm = TRUE) & beds > quantile(hcris_2012$beds, 0.5, na.rm = TRUE), 1, 0)) %>%
 mutate(fourth_quartile = ifelse(beds > quantile(hcris_2012$beds, 0.75, na.rm = TRUE), 1, 0))
-
-table(hcris_2012$first_quartile)
 
 fq_mean <- hcris_2012%>%
 filter(first_quartile == 1)%>%
@@ -135,10 +150,21 @@ filter(fourth_quartile == 1)%>%
 group_by(penalty)%>%
 summarise(fourth_mean = mean(price, na.rm = TRUE))
 
-fq_mean%>%
+quartile_table <- fq_mean%>%
 left_join(sq_mean, by = "penalty")%>%
 left_join(tq_mean, by = "penalty")%>%
 left_join(foq_mean, by = "penalty")
+```
+```{r}
+#| echo: false
+#| label: quartile-table
+#| tbl-cap: "Average Price among Penalized versus Non-Penalized Hospitals By Bed Size"
+
+options(knitr.kable.NA = 0)
+knitr::kable(quartile_table, 
+             col.names=c("Penalty","Average Price of First Quartile Beds", "Average Price of Second Quartile Beds", "Average Price of Third Quartile Beds", "Average Price of Fourth Quartile Beds"),
+             format.args=list(big.mark=","), booktabs = TRUE) %>%
+             kable_styling(latex_options=c("scale_down"))
 ```
 
 
@@ -147,7 +173,7 @@ left_join(foq_mean, by = "penalty")
 
 a. Nearest neighbor matching (1-to-1) with inverse variance distance 
 #based on quartiles of bed size
-```{r}
+```{r, echo = F, warning = F, message = F}
 library("dplyr")
 library("tidyverse")
 hcris.vars <- hcris_2012 %>% 
@@ -171,7 +197,7 @@ summary(m.nn.var2)
 
 b. Nearest neighbor matching (1-to-1) with Mahalanobis distance based
  on quartiles of bed size
-```{r, echo = F}
+```{r, echo = F, warning = F, message = F}
 m.nn.md <- Matching::Match(Y=hcris.vars$price,
                            Tr=hcris.vars$penalty,
                            X=hcris.covs,
@@ -183,10 +209,9 @@ m.nn.md <- Matching::Match(Y=hcris.vars$price,
 summary(m.nn.md)
 ```
 
-#c. Inverse propensity weighting, where the propensity scores are 
+c. Inverse propensity weighting, where the propensity scores are 
 #based on quartiles of bed size
-```{r, echo = F}
-#why?
+```{r, echo = F, warning = F, message = F}
 logit.model <- glm(penalty ~ first_quartile + second_quartile + third_quartile + fourth_quartile, family=binomial, data=hcris.vars)
 ps <- fitted(logit.model)
 
@@ -200,13 +225,14 @@ mean.t1 <- hcris.vars %>% filter(penalty==1) %>%
   select(price, ipw) %>% summarize(mean_p=weighted.mean(price,w=ipw))
 mean.t0 <- hcris.vars %>% filter(penalty==0) %>%
   select(price, ipw) %>% summarize(mean_p=weighted.mean(price,w=ipw))
-mean.t1$mean_p - mean.t0$mean_p
+ipw_result <- mean.t1$mean_p - mean.t0$mean_p
 ```
+The IPW estimate is `r ipw_result`.
 
 d. Simple linear regression, adjusting for quartiles of bed size 
 using dummy variables and appropriate interactions as discussed in 
 class
-```{r, echo = F}
+```{r, echo = F, warning = F, message = F}
 reg.dat <- hcris.vars %>% ungroup() %>% filter(complete.cases(.)) %>%
   mutate(fq_diff = penalty*(first_quartile - mean(first_quartile)),
          sq_diff = penalty*(second_quartile - mean(second_quartile)),
@@ -220,7 +246,7 @@ summary(reg)
 8. With these different treatment effect estimators, are the results
 similar, identical, very different?
 
-All four estimates are very similar, around -41.13.
+All four estimates are very similar, around 21.66.
 
 9. Do you think you’ve estimated a causal effect of the penalty? Why or why not? (just a couple of sentences)
 
@@ -230,4 +256,4 @@ I don't think so because only matching on bed size does not make the treatment a
 few sentences). Tell me one thing you learned and one thing that 
 really aggravated or surprised you. 
 
- I dropped the NAs so everything displays better and figured out how to get all my matching code to work. I also had a little trouble figuring out how to get the code for the first to display since i wrote it in the HCRIS_Data.rds folder. I have to format everything as a workspace so the code is neater. The code I am working on is displayed so I can track my progress, but will be removed for the final submission. I also need to neaten my graphs and tables.
+ I dropped the NAs so everything displays better and figured out how to get all my matching code to work. I was able to troubleshoot a lot of those issues I had with my code succesfully. The hardest thing this time was rendering my qmd files to pdf format. My Latex says it is 2022, not 2023 so won't render. However, Latex says it has no updates and I tried uninstalling and reinstalling but it still didn't change.
