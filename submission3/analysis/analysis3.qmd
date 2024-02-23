@@ -8,7 +8,7 @@ This is my second submission of the second homework for Econ 470.
 
 https://github.com/safiaread/homework-2
 
-```{r, echo = F}
+```{r, echo = F, message=FALSE}
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(tidyverse, ggplot2, dplyr, lubridate)
 load("/Users/safiaread/Desktop/homework_2/submission2/analysis/_HCRIS_Data_workspace.Rdata")
@@ -21,7 +21,10 @@ Show your answer as a line graph of the number of hospitals over time.
 ```{r, echo = F}
 figure_q1%>%
 ggplot(aes(fyear, n))+
-geom_line()
+geom_line()+
+ggtitle("Number of Hospitals Filing Multiple Reports in a Year Over Time")+
+xlab("Year")+
+ylab("Number of Hospitals")
 ```
 
 2. After removing/combining multiple reports, how many unique hospital
@@ -31,25 +34,31 @@ hcris <- read_rds("data/output/HCRIS_Data.rds")
 hcris <- hcris%>%
 filter(year >= 2008 & year <= 2015)
 
-length(unique(hcris$provider_number))
+q2 <- length(unique(hcris$provider_number))
+
+#There are `r q2` unique hospital IDs in the data.
 ```
+
 
 3. What is the distribution of total charges (tot_charges in the data) 
 in each year? Show your results with a “violin” plot, with charges on 
 the y-axis and years on the x-axis.
 
-```{r, echo = F}
+```{r, echo = F, warning = F}
 hcris%>%
 ggplot(aes(x = year, y = tot_charges))+
 geom_jitter(alpha = .05) +
-  geom_violin(aes(group = cut_width(year, 1)), scale = "width")
+  geom_violin(aes(group = cut_width(year, 1)), scale = "width")+
+  ggtitle("Total Charges Over Time")+
+  xlab("Year")+
+  ylab("Total Charges")
 ```
 
 4. What is the distribution of estimated prices in each year? Again present 
 your results with a violin plot, and recall our formula for estimating 
 prices from class. Be sure to do something about outliers and/or negative 
 prices in the data.
-```{r, echo = F}
+```{r, echo = F, warning = F}
 hcris_price <- hcris%>%
 mutate(discount_factor = 1-tot_discounts/tot_charges)%>%
 mutate(price_num = (ip_charges + icu_charges + ancillary_charges)*discount_factor - tot_mcare_payment, price_denom = tot_discharges - mcare_discharges)%>%
@@ -61,15 +70,16 @@ hcris_price <- hcris_price %>% filter(price_denom>100, !is.na(price_denom),
 
 summary(hcris_price$beds)
 
-#Come back and drop OUTLIERS!
-
 hcris_price <- hcris_price%>%
 filter(beds < 400)
 
 hcris_price %>%
 ggplot(aes(x = year, y = price))+
 geom_jitter(alpha = .05) +
-  geom_violin(aes(group = cut_width(year, 1)), scale = "width")
+  geom_violin(aes(group = cut_width(year, 1)), scale = "width")+
+  ggtitle("Estimated Prices Over Time")+
+  xlab("Year")+
+  ylab("Estimated Price")
 ```
 
 ## Estimate ATEs
@@ -212,9 +222,8 @@ similar, identical, very different?
 
 All four estimates are very similar, around -41.13.
 
-9. Do you think you’ve estimated a causal effect of the penalty? 
+9. Do you think you’ve estimated a causal effect of the penalty? Why or why not? (just a couple of sentences)
 
-Why or why not? (just a couple of sentences)
 I don't think so because only matching on bed size does not make the treatment and control groups functionally similar. There are still many other confounders we are not controlling for.
 
 10. Briefly describe your experience working with these data (just a 
