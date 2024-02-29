@@ -1,0 +1,207 @@
+# Homework 2 Workspace for Sub 1
+
+## Summarize the Data
+# 1. How many hospitals filed more than one report in the same year? 
+# Show your answer as a line graph of the number of hospitals over time.
+
+
+nrow(duplicate.hcris)
+  q1 <- duplicate.hcris%>%
+  group_by(fyear)%>%
+  count()
+  ggplot(q1, aes(x = fyear, y = n))+
+  geom_line()+
+  geom_point()
+ summary(duplicate.hcris)
+
+#2. After removing/combining multiple reports, how many unique hospital
+# IDs (Medicare provider numbers) exist in the data?
+
+hcris <- read_rds("data/output/HCRIS_Data.rds")
+length(unique(hcris$provider_number))
+
+
+#3. What is the distribution of total charges (tot_charges in the data) 
+#in each year? Show your results with a “violin” plot, with charges on 
+#the y-axis and years on the x-axis.
+
+head(hcris)
+summary(hcris)
+hcris%>%
+ggplot(aes(x = year, y = tot_charges))+
+geom_jitter(alpha = .05) +
+  geom_violin(aes(group = cut_width(year, 1)), scale = "width")+
+  ggtitle("Total Charges Over Time")+
+  xlab("Year")+
+  ylab("Total Charges")
+
+#4. What is the distribution of estimated prices in each year? Again present 
+#your results with a violin plot, and recall our formula for estimating 
+#prices from class. Be sure to do something about outliers and/or negative 
+#prices in the data.
+
+hcris_price <- hcris%>%
+mutate(discount_factor = 1-tot_discounts/tot_charges)%>%
+mutate(price_num = (ip_charges + icu_charges + ancillary_charges)*discount_factor - tot_mcare_payment, price_denom = tot_discharges - mcare_discharges)%>%
+mutate(price = abs(price_num/price_denom))
+# drop outliers
+hcris_price <- hcris_price %>% filter(price_denom>100, !is.na(price_denom), 
+         price_num>0, !is.na(price_num),
+         price<100000)
+
+hcris_price <- hcris_price%>%
+filter(beds < 400)
+
+hcris_price %>%
+ggplot(aes(x = year, y = price))+
+geom_jitter(alpha = .05) +
+  geom_violin(aes(group = cut_width(year, 1)), scale = "width")+
+  ggtitle("Estimated Prices Over Time")+
+  xlab("Year")+
+  ylab("Estimated Price")
+
+## Estimate ATEs
+
+#5. Calculate the average price among penalized versus non-penalized 
+#hospitals.
+hcris_2012 <- hcris_price%>%
+filter(year == 2012)%>%
+mutate(hvbp_payment = ifelse(is.na(hvbp_payment),0,hvbp_payment),
+          hrrp_payment = ifelse(is.na(hrrp_payment),0,abs(hrrp_payment)),
+  penalty = ifelse(hvbp_payment-hrrp_payment<0, 1, 0))%>%
+na.omit()
+
+summary(hcris_2012)
+
+price_table <- hcris_2012%>%
+group_by(penalty)%>%
+summarise(avg_price = mean(price, na.rm = TRUE))
+# values for which penalty was NA were dropped
+
+#6. Split hospitals into quartiles based on bed size. To do this, 
+#create 4 new indicator variables, where each variable is set to 1 
+#if the hospital’s bed size falls into the relevant quartile. Provide
+# a table of the average price among treated/control groups for each 
+#quartile.
+hcris_2012 <- hcris_2012 %>%
+mutate(first_quartile = ifelse(beds <= quantile(hcris_2012$beds, 0.25, na.rm = TRUE), 1, 0))%>%
+mutate(second_quartile = ifelse(beds <= quantile(hcris_2012$beds, 0.5, na.rm = TRUE) & beds > quantile(hcris_2012$beds, 0.25, na.rm = TRUE), 1, 0)) %>%
+mutate(third_quartile = ifelse(beds <= quantile(hcris_2012$beds, 0.75, na.rm = TRUE) & beds > quantile(hcris_2012$beds, 0.5, na.rm = TRUE), 1, 0)) %>%
+mutate(fourth_quartile = ifelse(beds > quantile(hcris_2012$beds, 0.75, na.rm = TRUE), 1, 0))
+
+fq_mean <- hcris_2012%>%
+filter(first_quartile == 1)%>%
+group_by(penalty)%>%
+summarise(first_mean = mean(price, na.rm = TRUE))
+
+sq_mean <- hcris_2012%>%
+filter(second_quartile == 1)%>%
+group_by(penalty)%>%
+summarise(second_mean = mean(price, na.rm = TRUE))
+
+tq_mean <- hcris_2012%>%
+filter(third_quartile == 1)%>%
+group_by(penalty)%>%
+summarise(third_mean = mean(price, na.rm = TRUE))
+
+foq_mean <- hcris_2012%>%
+filter(fourth_quartile == 1)%>%
+group_by(penalty)%>%
+summarise(fourth_mean = mean(price, na.rm = TRUE))
+
+quartile_table <- fq_mean%>%
+left_join(sq_mean, by = "penalty")%>%
+left_join(tq_mean, by = "penalty")%>%
+left_join(foq_mean, by = "penalty")
+
+
+
+#7. Find the average treatment effect using each of the following 
+#estimators, and present your results in a single table:
+
+#a. Nearest neighbor matching (1-to-1) with inverse variance distance 
+#based on quartiles of bed size
+install.packages("MatchIt")
+library("dplyr")
+library("tidyverse")
+hcris.vars <- hcris_2012 %>% 
+ungroup()%>%
+  select(penalty, price, first_quartile, second_quartile, third_quartile, fourth_quartile) %>%
+  na.omit()
+hcris.covs <- hcris.vars %>%
+select(first_quartile, second_quartile, third_quartile, fourth_quartile)
+
+
+
+m.nn.var2 <- Matching::Match(Y=hcris.vars$price,
+                            Tr=hcris.vars$penalty,
+                            X=hcris.covs,
+                            M=1,  #<<
+                            Weight=1,
+                            estimand="ATE")
+
+summary(m.nn.var2)
+
+#v.name=data.frame(new=c("Beds","Medicaid Discharges", "Inaptient Charges",
+                  # "Medicare Discharges", "Medicare Payments"))
+
+#b. Nearest neighbor matching (1-to-1) with Mahalanobis distance based
+# on quartiles of bed size
+
+m.nn.md <- Matching::Match(Y=hcris.vars$price,
+                           Tr=hcris.vars$penalty,
+                           X=hcris.covs,
+                           M=1,
+                           Weight=2,
+                           estimand="ATE")
+
+
+summary(m.nn.md)
+
+#c. Inverse propensity weighting, where the propensity scores are 
+#based on quartiles of bed size
+
+logit.model <- glm(penalty ~ first_quartile + second_quartile + third_quartile + fourth_quartile, family=binomial, data=hcris.vars)
+ps <- fitted(logit.model)
+
+hcris.vars <- hcris.vars %>%
+  mutate(ipw = case_when(
+    penalty==1 ~ 1/ps,
+    penalty==0 ~ 1/(1-ps),
+    TRUE ~ NA_real_
+  ))
+mean.t1 <- hcris.vars %>% filter(penalty==1) %>%
+  select(price, ipw) %>% summarize(mean_p=weighted.mean(price,w=ipw))
+mean.t0 <- hcris.vars %>% filter(penalty==0) %>%
+  select(price, ipw) %>% summarize(mean_p=weighted.mean(price,w=ipw))
+ipw_result <- mean.t1$mean_p - mean.t0$mean_p
+
+# d. Simple linear regression, adjusting for quartiles of bed size 
+#using dummy variables and appropriate interactions as discussed in 
+#class
+
+reg.dat <- hcris.vars %>% ungroup() %>% filter(complete.cases(.)) %>%
+  mutate(fq_diff = penalty*(first_quartile - mean(first_quartile)),
+         sq_diff = penalty*(second_quartile - mean(second_quartile)),
+         tq_diff = penalty*(third_quartile - mean(third_quartile)),
+         foq_diff = penalty*(fourth_quartile - mean(fourth_quartile)))
+reg <- lm(price ~ penalty + first_quartile + second_quartile + third_quartile + fourth_quartile + fq_diff + sq_diff + tq_diff + foq_diff,
+          data=reg.dat)
+summary(reg)
+
+#8. With these different treatment effect estimators, are the results
+# similar, identical, very different?
+
+#9. Do you think you’ve estimated a causal effect of the penalty? 
+#Why or why not? (just a couple of sentences)
+
+#10. Briefly describe your experience working with these data (just a 
+#few sentences). Tell me one thing you learned and one thing that 
+#really aggravated or surprised you. hi hi
+
+#Responses to Questions 8-10 in QMD file
+
+#rm(list=c()) # nolint
+
+
+save.image("submission1/Hwk2_workspace.Rdata")
